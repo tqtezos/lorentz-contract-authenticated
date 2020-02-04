@@ -1,0 +1,11 @@
+parameter (or (bool %send_true) (nat %send_42));
+storage unit;
+code {
+  CAR;
+  IF_LEFT
+    { ASSERT }
+    { PUSH nat 42; ASSERT_CMPEQ };
+  UNIT;
+  NIL operation;
+  PAIR
+}
