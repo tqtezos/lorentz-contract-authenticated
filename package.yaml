@@ -2,7 +2,7 @@
 
 <<: *meta
 name:                lorentz-contract-authenticated
-version:             0.1.0.1
+version:             0.1.1.0
 github:              "tqtezos/lorentz-contract-authenticated"
 license:             BSD3
 author:              "Michael J. Klein TQ Tezos"

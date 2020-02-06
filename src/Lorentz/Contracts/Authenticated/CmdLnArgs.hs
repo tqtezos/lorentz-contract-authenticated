@@ -54,6 +54,7 @@ import Text.Megaparsec (parse, eof)
 
 import qualified Lorentz.Contracts.Authenticated as Authenticated
 import Lorentz.EntryPoints.Parameter.Choice
+import Michelson.Typed.Annotation.Sing
 
 -- Read Address instance
 
@@ -526,40 +527,21 @@ infoMod = mconcat
   , Opt.progDesc "Whitelist contract CLI interface"
   ]
 
--- data CmdLnArgs
---   = Print
---       { defaultAuthenticated :: Bool
---       , authenticatedEntrypoints :: Map Text Bool
---       , wrappedContract :: TypeCheck.SomeContract
---       , mOutput :: Maybe FilePath
---       , forceSingleLine :: Bool
---       }
---   | Init
---       { initialWrappedStorage :: !SomeContractStorage
---       , admin :: !Address
---       }
---   | SetAdmin
---       { admin :: !Address
---       }
---   | GetAdmin
---       { viewAdmin :: !(View () Address)
---       }
---   | WrappedParam
---       { wrappedParam :: !SomeContractParam
---       }
-
 runCmdLnArgs :: CmdLnArgs -> IO ()
 runCmdLnArgs = \case
-  Print {..} -> -- defaultAuthenticated' authenticatedEntrypoints' (TypeCheck.SomeContract xs) mOutput' forceSingleLine' ->
+  Print {..} ->
     case wrappedContract of
       TypeCheck.SomeContract wrappedContractFC ->
         case wrappedContractFC of
           FullContract wrappedContractCode (paramNotes' :: ParamNotes cp) (_ :: Notes st) ->
-            maybe TL.putStrLn writeFileUtf8 mOutput $
-            printLorentzContract forceSingleLine $
-            Authenticated.authenticatedContract @(Value cp) @(Value st)
-              (chooseEntryPointsFromNotes @(Value cp) paramNotes' defaultAuthenticated authenticatedEntrypoints)
-              (I wrappedContractCode)
+            case toSing . annotatedFromNotes $ unParamNotes paramNotes' of
+              SomeSing (sann :: Sing ann) ->
+                withDict (singIAnnotated singISymbol sann) $
+                maybe TL.putStrLn writeFileUtf8 mOutput $
+                printLorentzContract forceSingleLine $
+                Authenticated.authenticatedContract @(AnnotatedParam cp ann) @(Value st)
+                  (chooseEntryPointsFromNotes @(AnnotatedParam cp ann) paramNotes' defaultAuthenticated authenticatedEntrypoints)
+                  (I wrappedContractCode)
   Init (SomeContractStorage (initialWrappedStorage :: Value st)) admin ->
     TL.putStrLn $
     printLorentzValue @(Authenticated.Storage (Value st)) forceOneLine $
@@ -578,69 +560,4 @@ runCmdLnArgs = \case
     Authenticated.WrappedParameter wrappedParam'
   where
     forceOneLine = True
-
--- data SomeContractParam where
---   SomeContractParam
---     :: (SingI t, Typeable t)
---     => Value t
---     -> (Sing t, Notes t)
---     -> (Dict (HasNoOp t), Dict (HasNoBigMap t))
---     -> SomeContractParam
-
-
-  -- Print (SomeSing (st :: Sing t)) mOutput forceOneLine ->
-  --   withDict (singIT st) $
-  --   withDict (singTypeableT st) $
-  --   assertOpAbsense @t $
-  --   assertBigMapAbsense @t $
-  --   assertIsComparable @t $
-  --   withDict (compareOpCT @(ToCT (Value t))) $
-  --   maybe TL.putStrLn writeFileUtf8 mOutput $
-  --   printLorentzContract forceOneLine (Whitelist.whitelistContract @(Value t))
-  -- Init {..} ->
-  --   fromSomeStorage initialStorage $ \(initialStorage' :: Whitelist.Storage (Value s)) ->
-  --     assertIsComparable @s $
-  --     case initialWrappedStorage of
-  --       Nothing ->
-  --         TL.putStrLn . printLorentzValue @(Whitelist.Storage (Value s)) forceSingleLine $
-  --         initialStorage'
-  --       Just initialWrappedStorage' ->
-  --         fromSomeContractStorage initialWrappedStorage' $ \(initialWrappedStorage'' :: Value t) ->
-  --         let st = sing @t in
-  --         withDict (singIT st) $
-  --         withDict (singTypeableT st) $
-  --         TL.putStrLn $
-  --         printLorentzValue @(Wrapper.Storage (Value t) (Value s)) forceSingleLine $
-  --         Wrapper.Storage
-  --           initialWrappedStorage''
-  --           initialStorage'
-  -- SetAdmin {..} ->
-  --   if wrapped
-  --      then
-  --        TL.putStrLn . printLorentzValue @(Wrapper.Parameter () ()) forceSingleLine $
-  --        Wrapper.WhitelistParameter $
-  --        Whitelist.SetAdmin admin
-  --      else
-  --        TL.putStrLn . printLorentzValue @(Whitelist.Parameter ()) forceSingleLine $
-  --        Whitelist.OtherParameter $
-  --        Whitelist.SetAdmin admin
-  -- GetAdmin {..} ->
-  --   if wrapped
-  --      then
-  --        TL.putStrLn . printLorentzValue @(Wrapper.Parameter () ()) forceSingleLine $
-  --        Wrapper.WhitelistParameter $
-  --        Whitelist.GetAdmin viewAdmin
-  --      else
-  --        TL.putStrLn . printLorentzValue @(Whitelist.Parameter ()) forceSingleLine $
-  --        Whitelist.OtherParameter $
-  --        Whitelist.GetAdmin viewAdmin
-  -- WrappedParam {..} ->
-  --   fromSomeContractParam wrappedParam $ \(wrappedParam' :: Value t) ->
-  --     let st = sing @t in
-  --     withDict (singIT st) $
-  --     withDict (singTypeableT st) $
-  --     TL.putStrLn . printLorentzValue @(Wrapper.Parameter (Value t) ()) forceSingleLine $
-  --     Wrapper.WrappedParameter wrappedParam'
-  -- where
-  --   forceSingleLine = True
 

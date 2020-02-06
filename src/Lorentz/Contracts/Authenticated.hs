@@ -15,6 +15,7 @@ import Michelson.Typed.Annotation
 import Michelson.Untyped.Annotation
 
 import Lorentz.EntryPoints.Parameter.Choice
+import Michelson.Typed.Annotation.Sing
 
 import Data.Singletons
 import qualified Fcf
@@ -32,29 +33,30 @@ data Parameter a
       }
   deriving  (Generic)
 
--- | Type to tag custom implementation of `EntryPointsDerivation`
-data EpdCustom
+instance (SingI t, Typeable t, SingI ann) => EntryPointsDerivation EpdCustom (Parameter (AnnotatedParam t ann)) where
+  type EpdAllEntryPoints EpdCustom (Parameter (AnnotatedParam t ann)) = '[]
+  -- '("wrappedParameter", a), '("setAdmin", Address), '("getAdmin", View () Address)]
+  --
+  type EpdLookupEntryPoint EpdCustom (Parameter (AnnotatedParam t ann)) = Fcf.ConstFn 'Nothing
+    -- Fcf.Case
+    -- [ "wrappedParameter" Fcf.--> 'Just a
+    -- , "setAdmin" Fcf.--> 'Just Address
+    -- , "getAdmin" Fcf.--> 'Just (View () Address)
+    -- , Fcf.Else (Fcf.ConstFn 'Nothing)
+    -- ]
 
-instance (SingI (ToT a), Typeable (ToT a)) => EntryPointsDerivation EpdCustom (Parameter a) where
-  type EpdAllEntryPoints EpdCustom (Parameter a) = '[ '("wrappedParameter", a), '("setAdmin", Address), '("getAdmin", View () Address)]
-  type EpdLookupEntryPoint EpdCustom (Parameter a) = Fcf.Case
-    [ "wrappedParameter" Fcf.--> 'Just a
-    , "setAdmin" Fcf.--> 'Just Address
-    , "getAdmin" Fcf.--> 'Just (View () Address)
-    , Fcf.Else (Fcf.ConstFn 'Nothing)
-    ]
   epdNotes =
-    case starNotes @(ToT (Parameter a)) of
-      NTOr ta _ tb as bs ->
+    case starNotes @(ToT (Parameter (AnnotatedParam t ann))) of
+      NTOr ta _ tb _ bs ->
         case bs of
           NTOr tc _ _ cs ds ->
-            NTOr ta (AnnotationUnsafe "wrappedParameter") tb as $
+            NTOr ta (AnnotationUnsafe "wrappedParameter") tb (annotatedToNotes . fromSing $ sing @ann) $
             NTOr tc (AnnotationUnsafe "setAdmin") (AnnotationUnsafe "getAdmin") cs ds
 
   epdCall = error "EntryPointsDerivation EpdCustom (Parameter a): epdCall is undefined"
 
-instance (NiceParameter a) => ParameterHasEntryPoints (Parameter a) where
-  type ParameterEntryPointsDerivation (Parameter a) = EpdCustom
+instance (SingI t, Typeable t, SingI ann) => ParameterHasEntryPoints (Parameter (AnnotatedParam t ann)) where
+  type ParameterEntryPointsDerivation (Parameter (AnnotatedParam t ann)) = EpdCustom
 
 deriving instance Show a => Show (Parameter a)
 

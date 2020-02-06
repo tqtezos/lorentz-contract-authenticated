@@ -2,6 +2,16 @@
 See the [Tezos Client Tutotial](https://assets.tqtezos.com/setup/1-tezos-client) and the
 FA1.2 [Quick Start Tutorial](https://assets.tqtezos.com/token-contracts/1-fa12-lorentz) for more detail.
 
+Note: The wrapper code has just been updated to reflect the original contract's
+entrypoint annotations in the resulting wrapped contract.
+
+In the example `AuthenticatedTrueOr42`, the new parameter type should be:
+
+```
+parameter (or (or %wrappedParameter (bool %send_true) (nat %send_42))
+              (or (address %setAdmin) (pair %getAdmin unit (contract address))));
+```
+
 # Test contract
 
 For testing, we have a simple contract with two entrypoints:
